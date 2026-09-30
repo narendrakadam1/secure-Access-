@@ -1,0 +1,37 @@
+{
+  "version": "1.65.0",
+  "results": [
+    {
+      "check_id": "javascript.browser.security.dom-based-xss.dom-based-xss",
+      "path": "src/components/SearchPanel.tsx",
+      "start": { "line": 42, "col": 9 },
+      "end": { "line": 42, "col": 48 },
+      "extra": {
+        "message": "User-controlled search telemetry is written directly to element.innerHTML without sanitization, leading to client-side DOM XSS.",
+        "metadata": {
+          "cwe": ["CWE-79: Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting')"],
+          "owasp": ["A03:2021 - Injection"],
+          "confidence": "HIGH"
+        },
+        "severity": "ERROR",
+        "lines": "    searchContainer.innerHTML = queryParam;"
+      }
+    },
+    {
+      "check_id": "javascript.browser.security.insecure-localstorage.insecure-localstorage",
+      "path": "src/utils/tokenStorage.ts",
+      "start": { "line": 25, "col": 5 },
+      "end": { "line": 25, "col": 46 },
+      "extra": {
+        "message": "Sensitive authentication token stored in localStorage instead of HttpOnly cookie, vulnerable to extraction via XSS.",
+        "metadata": {
+          "cwe": ["CWE-922: Insecure Storage of Sensitive Information"],
+          "owasp": ["A01:2021 - Broken Access Control"],
+          "confidence": "MEDIUM"
+        },
+        "severity": "WARNING",
+        "lines": "    localStorage.setItem('auth_token', token);"
+      }
+    }
+  ]
+}

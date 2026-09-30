@@ -1,0 +1,35 @@
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# Node
+node_modules/
+dist/
+.vite/
+
+# Databases, Logs & Runtime Artifacts
+*.sqlite*
+*.sqlite3*
+*.db*
+*.pdf
+*.log
+backend/data/*
+!backend/data/.gitkeep
+backend/backend/
+data/
+/tmp/artifacts/
+/tmp/workspace/
+
+# OS
+.DS_Store
+Thumbs.db

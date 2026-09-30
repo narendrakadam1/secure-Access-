@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SECUREASSESS - Vulnerability Scan Report - {{ assessment_metadata.job_id }}</title>
+    <style>
+        :root {
+            --bg-base: #0b1120;
+            --bg-card: #0f172a;
+            --bg-card-subtle: #1e293b;
+            --border-color: #334155;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --accent-cyan: #06b6d4;
+            --accent-blue: #3b82f6;
+            --confirmed-green: #10b981;
+            --unverified-amber: #f59e0b;
+            --critical-red: #ef4444;
+            --high-crimson: #f43f5e;
+            --medium-yellow: #eab308;
+            --low-slate: #64748b;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-base);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 24px;
+            line-height: 1.5;
+        }
+
+        .header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 20px;
+            margin-bottom: 24px;
+        }
+
+        .logo-title {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .shield-icon {
+            width: 44px;
+            height: 44px;
+            background: linear-gradient(135deg, #0ea5e9, #0284c7);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .subtitle {
+            margin: 4px 0 0 0;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .metadata-strip {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 16px 20px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+
+        .meta-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .meta-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .meta-value {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+            word-break: break-all;
+        }
+
+        .badge-pill {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 9999px;
+            font-size: 11px;
+            font-weight: 600;
+            text-align: center;
+            width: fit-content;
+        }
+
+        .badge-dast { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4); }
+        .badge-sast { background: rgba(168, 85, 247, 0.2); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.4); }
+        .badge-success { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); }
+
+        /* Summary Cards */
+        .summary-section-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            color: #38bdf8;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 14px;
+            margin-bottom: 32px;
+        }
+
+        .counter-card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .counter-card.card-total { border-left: 4px solid #818cf8; }
+        .counter-card.card-confirmed { border-left: 4px solid var(--confirmed-green); }
+        .counter-card.card-unverified { border-left: 4px solid var(--unverified-amber); }
+        .counter-card.card-high { border-left: 4px solid var(--high-crimson); }
+        .counter-card.card-critical { border-left: 4px solid var(--critical-red); }
+        .counter-card.card-medium { border-left: 4px solid var(--medium-yellow); }
+
+        .counter-number {
+            font-size: 28px;
+            font-weight: 800;
+            line-height: 1;
+            margin-bottom: 8px;
+        }
+
+        .counter-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        /* Findings Cards */
+        .finding-card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            margin-bottom: 20px;
+            overflow: hidden;
+            border-left: 4px solid var(--high-crimson);
+        }
+
+        .finding-card.severity-Critical { border-left-color: var(--critical-red); }
+        .finding-card.severity-High { border-left-color: var(--high-crimson); }
+        .finding-card.severity-Medium { border-left-color: var(--medium-yellow); }
+        .finding-card.severity-Low { border-left-color: var(--low-slate); }
+
+        .finding-header {
+            padding: 16px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(30, 41, 59, 0.4);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .finding-title-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .finding-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .badges-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .badge-severity {
+            padding: 3px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .badge-severity.Critical { background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid #ef4444; }
+        .badge-severity.High { background: rgba(244, 63, 94, 0.2); color: #fda4af; border: 1px solid #f43f5e; }
+        .badge-severity.Medium { background: rgba(234, 179, 8, 0.2); color: #fde047; border: 1px solid #eab308; }
+        .badge-severity.Low { background: rgba(100, 116, 139, 0.2); color: #cbd5e1; border: 1px solid #64748b; }
+
+        .badge-status-confirmed { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; border: 1px solid #10b981; font-weight: 700; }
+        .badge-status-unverified { background: rgba(245, 158, 11, 0.2); color: #fcd34d; border: 1px solid #f59e0b; font-weight: 700; }
+
+        .badge-confidence {
+            background: rgba(168, 85, 247, 0.2);
+            color: #d8b4fe;
+            border: 1px solid #c084fc;
+            padding: 3px 8px;
+            border-radius: 9999px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .finding-body {
+            padding: 20px;
+        }
+
+        .detail-row {
+            display: grid;
+            grid-template-columns: 140px 1fr;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+
+        .detail-label {
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        .detail-value {
+            color: var(--text-primary);
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            word-break: break-all;
+        }
+
+        /* Remediation Box */
+        .remediation-box {
+            background: rgba(6, 78, 59, 0.3);
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 16px;
+            margin-bottom: 16px;
+        }
+
+        .remediation-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: #34d399;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .remediation-text {
+            font-size: 12px;
+            color: #e2e8f0;
+            margin-bottom: 8px;
+        }
+
+        .code-block {
+            background-color: #022c22;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: 6px;
+            padding: 10px 14px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 12px;
+            color: #6ee7b7;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+
+        /* Evidence Box */
+        .evidence-box {
+            background: #020617;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 12px 14px;
+            margin-top: 12px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 11px;
+            color: #94a3b8;
+            white-space: pre-wrap;
+            max-height: 180px;
+            overflow-y: auto;
+        }
+
+        /* Table */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 12px;
+            font-size: 12px;
+        }
+
+        th, td {
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            background: var(--bg-card-subtle);
+            color: var(--text-secondary);
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 11px;
+        }
+
+        /* Appendix */
+        .appendix-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 36px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <div class="header-container">
+        <div class="logo-title">
+            <div class="shield-icon">🛡️</div>
+            <div>
+                <h1>Vulnerability Scan Report</h1>
+                <p class="subtitle">Autonomous Security Assessment Powered by SECUREASSESS AI Multi-Agent Pipeline</p>
+            </div>
+        </div>
+        <div>
+            <span class="badge-pill badge-success">SIH 2026 PS ID 26163</span>
+        </div>
+    </div>
+
+    <!-- Metadata Strip -->
+    <div class="metadata-strip">
+        <div class="meta-item">
+            <span class="meta-label">Target Component</span>
+            <span class="meta-value">{{ assessment_metadata.target }}</span>
+        </div>
+        <div class="meta-item">
+            <span class="meta-label">Scan Timestamp</span>
+            <span class="meta-value">{{ assessment_metadata.timestamp }}</span>
+        </div>
+        <div class="meta-item">
+            <span class="meta-label">Assessment Mode</span>
+            <span class="meta-value">
+                <span class="badge-pill {% if assessment_metadata.mode == 'DAST' %}badge-dast{% else %}badge-sast{% endif %}">
+                    {{ assessment_metadata.mode }} ({{ "Web Application" if assessment_metadata.mode == "DAST" else "Static Code Analysis" }})
+                </span>
+            </span>
+        </div>
+        <div class="meta-item">
+            <span class="meta-label">Status</span>
+            <span class="meta-value">
+                <span class="badge-pill badge-success">✓ COMPLETED</span>
+            </span>
+        </div>
+    </div>
+
+    <!-- Executive Summary -->
+    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 20px; margin-bottom: 28px;">
+        <h3 style="margin-top: 0; font-size: 15px; color: var(--accent-cyan);">Executive Summary</h3>
+        <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;">{{ executive_summary }}</p>
+        <div style="font-size: 11px; color: var(--text-muted); font-style: italic;">
+            {{ authorized_scope_statement }}
+        </div>
+    </div>
+
+    <!-- Scan Summary Counter Cards -->
+    <div class="summary-section-title">📊 Scan Summary</div>
+    <div class="summary-grid">
+        <div class="counter-card card-total">
+            <div class="counter-number" style="color: #a5b4fc;">{{ metrics_summary.total }}</div>
+            <div class="counter-label">Total Findings</div>
+        </div>
+        <div class="counter-card card-confirmed">
+            <div class="counter-number" style="color: var(--confirmed-green);">{{ metrics_summary.confirmed }}</div>
+            <div class="counter-label">Confirmed</div>
+        </div>
+        <div class="counter-card card-unverified">
+            <div class="counter-number" style="color: var(--unverified-amber);">{{ metrics_summary.unverified }}</div>
+            <div class="counter-label">Unverified</div>
+        </div>
+        <div class="counter-card card-critical">
+            <div class="counter-number" style="color: var(--critical-red);">{{ metrics_summary.critical }}</div>
+            <div class="counter-label">Critical</div>
+        </div>
+        <div class="counter-card card-high">
+            <div class="counter-number" style="color: var(--high-crimson);">{{ metrics_summary.high }}</div>
+            <div class="counter-label">High</div>
+        </div>
+        <div class="counter-card card-medium">
+            <div class="counter-number" style="color: var(--medium-yellow);">{{ metrics_summary.medium }}</div>
+            <div class="counter-label">Medium</div>
+        </div>
+    </div>
+
+    <!-- Detailed Findings -->
+    <div class="summary-section-title">🔍 Detailed Findings ({{ findings | length }})</div>
+    {% for finding in findings %}
+    <div class="finding-card severity-{{ finding.severity }}">
+        <div class="finding-header">
+            <div class="finding-title-group">
+                <span class="finding-title">[{{ finding.id }}] {{ finding.title }}</span>
+                <span class="badge-severity {{ finding.severity }}">{{ finding.severity }}</span>
+                <span class="badge-pill {% if finding.status == 'Confirmed' %}badge-status-confirmed{% else %}badge-status-unverified{% endif %}">
+                    {{ finding.status | upper }}
+                </span>
+                <span class="badge-confidence">Confidence: {{ finding.confidence_pct }}%</span>
+            </div>
+            <div style="font-size: 12px; color: var(--text-muted); font-weight: 600;">
+                CVSS: {{ finding.cvss_score }}
+            </div>
+        </div>
+        <div class="finding-body">
+            <div class="detail-row">
+                <span class="detail-label">Affected Component:</span>
+                <span class="detail-value">{{ finding.affected_component }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">OWASP Category:</span>
+                <span class="detail-value" style="font-family: inherit;">{{ finding.owasp_category }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">SIH Scope Class:</span>
+                <span class="detail-value" style="font-family: inherit;">{{ finding.sih_scope_category }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">CVSS 3.1 Vector:</span>
+                <span class="detail-value">{{ finding.cvss_vector }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Source Tool:</span>
+                <span class="detail-value">{{ finding.source_tool }}</span>
+            </div>
+
+            <!-- Description & Impact -->
+            <p style="font-size: 13px; color: var(--text-secondary); margin: 12px 0 8px 0;">
+                {{ finding.description }}
+            </p>
+            <div style="font-size: 12px; color: #cbd5e1; margin-bottom: 12px;">
+                <strong>Business Impact:</strong> {{ finding.business_impact }}
+            </div>
+
+            <!-- Steps to Reproduce -->
+            {% if finding.steps_to_reproduce %}
+            <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">
+                <strong style="color: var(--text-primary);">Steps to Reproduce:</strong>
+                <ul style="margin: 4px 0 0 0; padding-left: 20px;">
+                    {% for step in finding.steps_to_reproduce %}
+                    <li>{{ step }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            <!-- Remediation -->
+            <div class="remediation-box">
+                <div class="remediation-title">🛠️ Remediation Guidance</div>
+                <div class="remediation-text"><strong>Overview:</strong> {{ finding.remediation.description }}</div>
+                <div class="remediation-text"><strong>Actionable Fix:</strong> {{ finding.remediation.fix }}</div>
+                <div class="code-block">{{ finding.remediation.example_code }}</div>
+            </div>
+
+            <!-- PoC Evidence (if Confirmed) -->
+            {% if finding.poc_evidence %}
+            <div style="margin-top: 12px;">
+                <span style="font-size: 12px; font-weight: 700; color: var(--confirmed-green);">✓ Verified PoC Evidence:</span>
+                <div class="evidence-box">{{ finding.poc_evidence }}</div>
+            </div>
+            {% endif %}
+
+            <!-- Raw Evidence -->
+            {% if finding.evidence %}
+            <div style="margin-top: 12px;">
+                <span style="font-size: 12px; font-weight: 600; color: var(--text-secondary);">Raw Scanner Evidence:</span>
+                <div class="evidence-box">{% for ev in finding.evidence %}{{ ev }}
+{% endfor %}</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+
+    <!-- Audit Trail -->
+    <div class="appendix-card">
+        <h3 style="margin-top: 0; font-size: 16px; color: var(--accent-cyan);">Immutable Scan Audit Trail</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>Event</th>
+                    <th>Tool / Request Details</th>
+                    <th>Outcome</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in audit_trail %}
+                <tr>
+                    <td>{{ entry.timestamp }}</td>
+                    <td><strong>{{ entry.event }}</strong></td>
+                    <td style="font-family: monospace;">{{ entry.command or entry.url or entry.message }}</td>
+                    <td><span class="badge-pill {% if entry.outcome == 'CONFIRMED' %}badge-status-confirmed{% else %}badge-dast{% endif %}">{{ entry.outcome or entry.status or "OK" }}</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Research Gap Coverage Appendix -->
+    <div class="appendix-card">
+        <h3 style="margin-top: 0; font-size: 16px; color: var(--accent-cyan);">Appendix: Research Gap Coverage Mapping</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 30%;">Research Gap & Literature Citation</th>
+                    <th>SECUREASSESS Architectural Solution</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for gap, sol in research_gap_coverage_appendix.items() %}
+                <tr>
+                    <td style="font-weight: 700; color: #93c5fd;">{{ gap }}</td>
+                    <td style="color: var(--text-secondary);">{{ sol }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+</body>
+</html>

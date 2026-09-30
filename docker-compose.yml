@@ -1,0 +1,102 @@
+version: '3.8'
+
+# ==============================================================================
+# SECUREASSESS - Autonomous Web-Application Security Assessment Platform
+# SIH 2026 Problem Statement ID: 26163 (NTRO)
+# ==============================================================================
+
+services:
+  # ----------------------------------------------------------------------------
+  # Kali Scanner Container: Isolated execution sandbox for Nmap, ZAP, Nikto,
+  # Semgrep, and Gitleaks.
+  # Hard Safety Constraint #3: Internal network only, no published ports.
+  # ----------------------------------------------------------------------------
+  kali-scanner:
+    build:
+      context: .
+      dockerfile: Dockerfile.kali
+    image: secureassess-kali-scanner:latest
+    container_name: kali-scanner
+    restart: unless-stopped
+    command: ["tail", "-f", "/dev/null"]
+    networks:
+      - sec-internal
+    # No exposed ports - strictly managed via internal docker exec
+    ports: []
+    volumes:
+      - scan_artifacts:/tmp/artifacts
+      - scan_workspace:/tmp/workspace
+    security_opt:
+      - no-new-privileges:true
+
+  # ----------------------------------------------------------------------------
+  # Backend Orchestrator: FastAPI application hosting the 5-agent state machine,
+  # SQLite shared memory store, LLM gateway, and reporting engine.
+  # ----------------------------------------------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: secureassess-backend:latest
+    container_name: secureassess-backend
+    restart: unless-stopped
+    env_file:
+      - .env.example
+    environment:
+      - PYTHONUNBUFFERED=1
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/data:/app/data
+      - scan_artifacts:/tmp/artifacts
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - kali-scanner
+    networks:
+      - sec-internal
+      - sec-frontend
+
+  # ----------------------------------------------------------------------------
+  # Frontend Dashboard: React + Vite + Tailwind dashboard replicating the
+  # SUDARSHAN DAST Scan Report UI.
+  # ----------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: secureassess-frontend:latest
+    container_name: secureassess-frontend
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    networks:
+      - sec-frontend
+
+  # ----------------------------------------------------------------------------
+  # Optional Local LLM (Ollama profile): Provides offline inference capability.
+  # ----------------------------------------------------------------------------
+  ollama:
+    image: ollama/ollama:latest
+    container_name: secureassess-ollama
+    restart: unless-stopped
+    profiles:
+      - ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    networks:
+      - sec-internal
+
+networks:
+  sec-internal:
+    driver: bridge
+  sec-frontend:
+    driver: bridge
+
+volumes:
+  scan_artifacts:
+  scan_workspace:
+  ollama_models:

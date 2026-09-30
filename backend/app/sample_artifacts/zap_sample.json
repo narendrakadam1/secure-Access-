@@ -1,0 +1,115 @@
+{
+  "@version": "2.14.0",
+  "@generated": "2026-09-28T08:30:00Z",
+  "site": [
+    {
+      "@name": "http://localhost:3000",
+      "@host": "localhost",
+      "@port": "3000",
+      "@ssl": "false",
+      "alerts": [
+        {
+          "pluginid": "40012",
+          "alertRef": "40012-1",
+          "alert": "Cross Site Scripting (Reflected)",
+          "name": "Cross Site Scripting (Reflected)",
+          "riskcode": "3",
+          "confidence": "2",
+          "riskdesc": "High (Medium)",
+          "desc": "A reflected cross-site scripting (XSS) vulnerability was identified in the query parameter 'q'. User input is reflected in the HTTP response body without contextual encoding.",
+          "instances": [
+            {
+              "uri": "http://localhost:3000/?q=test",
+              "method": "GET",
+              "param": "q",
+              "attack": "<script>alert(1)</script>",
+              "evidence": "<script>alert(1)</script>"
+            }
+          ],
+          "count": "1",
+          "solution": "Contextually encode all user-controlled data before rendering into the HTML DOM. Enforce a strong Content-Security-Policy.",
+          "otherinfo": "The marker was reflected verbatim in an unquoted HTML attribute context.",
+          "reference": "https://owasp.org/www-community/attacks/xss/",
+          "cweid": "79",
+          "wascid": "8",
+          "sourceid": "1"
+        },
+        {
+          "pluginid": "10038",
+          "alertRef": "10038",
+          "alert": "Content Security Policy (CSP) Header Not Set",
+          "name": "Content Security Policy (CSP) Header Not Set",
+          "riskcode": "2",
+          "confidence": "3",
+          "riskdesc": "Medium (High)",
+          "desc": "Content Security Policy (CSP) is an added layer of security that helps to detect and mitigate certain types of attacks, including Cross Site Scripting (XSS) and data injection attacks.",
+          "instances": [
+            {
+              "uri": "http://localhost:3000/",
+              "method": "GET",
+              "param": "",
+              "attack": "",
+              "evidence": ""
+            }
+          ],
+          "count": "1",
+          "solution": "Ensure that your web server, application server, load balancer, etc. is configured to set the Content-Security-Policy header.",
+          "reference": "https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP",
+          "cweid": "693",
+          "wascid": "15",
+          "sourceid": "1"
+        },
+        {
+          "pluginid": "10054",
+          "alertRef": "10054",
+          "alert": "Cookie without SameSite Attribute",
+          "name": "Cookie without SameSite Attribute",
+          "riskcode": "1",
+          "confidence": "2",
+          "riskdesc": "Low (Medium)",
+          "desc": "A cookie has been set without a SameSite attribute, which means that the cookie will be sent in cross-site requests, exposing the site to Cross-Site Request Forgery (CSRF).",
+          "instances": [
+            {
+              "uri": "http://localhost:3000/",
+              "method": "GET",
+              "param": "wm_session",
+              "attack": "",
+              "evidence": "Set-Cookie: wm_session=abc987xyz"
+            }
+          ],
+          "count": "1",
+          "solution": "Ensure that the SameSite attribute is set to 'lax' or 'strict' for all sensitive session cookies.",
+          "reference": "https://owasp.org/www-community/SameSite",
+          "cweid": "1275",
+          "wascid": "13",
+          "sourceid": "1"
+        },
+        {
+          "pluginid": "10020",
+          "alertRef": "10020",
+          "alert": "Missing Anti-clickjacking Header (X-Frame-Options)",
+          "name": "Missing Anti-clickjacking Header (X-Frame-Options)",
+          "riskcode": "2",
+          "confidence": "2",
+          "riskdesc": "Medium (Medium)",
+          "desc": "The response does not include either Content-Security-Policy with 'frame-ancestors' directive or X-Frame-Options to protect against Clickjacking attacks.",
+          "instances": [
+            {
+              "uri": "http://localhost:3000/",
+              "method": "GET",
+              "param": "X-Frame-Options",
+              "attack": "",
+              "evidence": ""
+            }
+          ],
+          "count": "1",
+          "solution": "Modern web applications should protect against Clickjacking by including X-Frame-Options: DENY or SAMEORIGIN, or CSP frame-ancestors.",
+          "reference": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Frame-Options",
+          "cweid": "1021",
+          "wascid": "15",
+          "sourceid": "1"
+        }
+      ]
+    }
+  ]
+}

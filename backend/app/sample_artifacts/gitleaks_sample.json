@@ -1,0 +1,22 @@
+[
+  {
+    "Description": "Mapbox API Token",
+    "StartLine": 14,
+    "EndLine": 14,
+    "StartColumn": 18,
+    "EndColumn": 65,
+    "Match": "pk.eyJ1Ijoia29hbGE3MyIsImEiOiJjbHNleDNmNmMwMWpsMnFwZ2dldjFyeTYwIn0.A-7K",
+    "Secret": "pk.eyJ1Ijoia29hbGE3MyIsImEiOiJjbHNleDNmNmMwMWpsMnFwZ2dldjFyeTYwIn0.A-7K",
+    "File": "src/config/mapConfig.ts",
+    "SymlinkFile": "",
+    "Commit": "a1b2c3d4e5f607182930415263748596a7b8c9d0",
+    "Entropy": 4.12,
+    "Author": "Developer",
+    "Email": "dev@worldmonitor.local",
+    "Date": "2026-01-15T10:00:00Z",
+    "Message": "Add default public Mapbox access key",
+    "Tags": ["key", "mapbox"],
+    "RuleID": "mapbox-api-token",
+    "Fingerprint": "src/config/mapConfig.ts:mapbox-api-token:14"
+  }
+]

@@ -4,9 +4,8 @@
 
 @layer base {
   body {
-    background-color: #0b1120;
-    color: #f8fafc;
-    font-family: 'Plus Jakarta Sans', sans-serif;
+    @apply bg-slate-50 text-slate-900 dark:bg-[#0b1120] dark:text-[#f8fafc] transition-colors duration-200;
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   }
   
   code, pre, .font-mono {
@@ -14,21 +13,20 @@
   }
 }
 
-/* Custom dark scrollbar */
+/* Custom adaptive scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #0f172a;
+  @apply bg-slate-100 dark:bg-[#0f172a];
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #334155;
-  border-radius: 4px;
+  @apply bg-slate-300 dark:bg-[#334155] rounded;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  @apply bg-slate-400 dark:bg-[#475569];
 }

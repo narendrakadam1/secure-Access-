@@ -125,7 +125,7 @@ def get_scan_status(
     if not scan:
         raise HTTPException(status_code=404, detail=f"Scan job '{job_id}' not found.")
 
-    log_tail = state_mgr.get_logs(job_id=job_id, since_seq=since_seq, limit=100)
+    log_tail = state_mgr.get_logs(job_id=job_id, since_seq=since_seq, limit=500)
     summary = state_mgr.get_findings_summary(job_id)
 
     return StatusResponse(

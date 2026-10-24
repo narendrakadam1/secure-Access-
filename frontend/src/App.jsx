@@ -8,8 +8,13 @@ import FindingCard from './components/FindingCard';
 import ExportToolbar from './components/ExportToolbar';
 import ResearchGapModal from './components/ResearchGapModal';
 import { startScan, getScanStatus, getReportJson } from './api';
+import { Shield, FileSearch } from 'lucide-react';
 
 export default function App() {
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem('secureassess_theme') || 'light';
+  });
+
   const [jobId, setJobId] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
   const [currentPhase, setCurrentPhase] = useState('idle');
@@ -37,30 +42,52 @@ export default function App() {
   const pollTimerRef = useRef(null);
   const latestSeqRef = useRef(0);
 
-  // On mount: attempt to load latest pre-existing report
+  // Synchronize theme with HTML document class
   useEffect(() => {
-    async function loadInitial() {
-      try {
-        const res = await fetch('/report.json');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.findings && data.findings.length > 0) {
-            setFindings(data.findings);
-            setSummary(data.metrics_summary || data.summary || summary);
-            setCurrentPhase('completed');
-            if (data.assessment_metadata) {
-              setJobId(data.assessment_metadata.job_id);
-              setCurrentTarget(data.assessment_metadata.target || 'http://localhost:3000');
-              setCurrentMode((data.assessment_metadata.mode || 'dast').toLowerCase());
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('secureassess_theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  };
+
+  // Optional manual loader for pre-existing report
+  const handleLoadSavedReport = async () => {
+    try {
+      const res = await fetch('/report.json');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.findings && data.findings.length > 0) {
+          setFindings(data.findings);
+          setSummary(data.metrics_summary || data.summary || summary);
+          setCurrentPhase('completed');
+          if (data.assessment_metadata?.job_id) {
+            const prevJobId = data.assessment_metadata.job_id;
+            setJobId(prevJobId);
+            setCurrentTarget(data.assessment_metadata.target || 'http://localhost:3000');
+            setCurrentMode((data.assessment_metadata.mode || 'dast').toLowerCase());
+
+            try {
+              const status = await getScanStatus(prevJobId, 0);
+              if (status.log_tail && status.log_tail.length > 0) {
+                setLogs(status.log_tail);
+                latestSeqRef.current = Math.max(...status.log_tail.map((l) => l.seq || 0));
+              }
+            } catch (e) {
+              // Ignore if not present in DB
             }
           }
         }
-      } catch (err) {
-        // Normal if no scan has been run yet
       }
+    } catch (err) {
+      console.error('Failed to load saved report:', err);
     }
-    loadInitial();
-  }, []);
+  };
 
   // Poll status while scanning
   useEffect(() => {
@@ -76,9 +103,12 @@ export default function App() {
 
         if (status.log_tail && status.log_tail.length > 0) {
           setLogs((prev) => {
-            const newLogs = [...prev, ...status.log_tail];
-            latestSeqRef.current = Math.max(...newLogs.map((l) => l.seq || 0));
-            return newLogs;
+            const existingSeqs = new Set(prev.map((l) => l.seq));
+            const newUnique = status.log_tail.filter((l) => !existingSeqs.has(l.seq));
+            if (newUnique.length === 0) return prev;
+            const updated = [...prev, ...newUnique];
+            latestSeqRef.current = Math.max(...updated.map((l) => l.seq || 0), latestSeqRef.current);
+            return updated;
           });
         }
 
@@ -99,7 +129,7 @@ export default function App() {
       } catch (err) {
         console.error('Polling error:', err);
       }
-    }, 1500);
+    }, 1000);
 
     return () => clearInterval(pollTimerRef.current);
   }, [isScanning, jobId]);
@@ -120,9 +150,12 @@ export default function App() {
       setLogs([
         {
           seq: 1,
+          ts: new Date().toISOString(),
           timestamp: new Date().toISOString(),
+          agent_name: 'Orchestrator',
           source_agent: 'Orchestrator',
-          message: `Scan pipeline initiated for target: ${target} [Job ID: ${res.job_id}]`,
+          line: `Scan pipeline initiated for target: ${target} [Job ID: ${res.job_id}] (Mode: ${mode.toUpperCase()})`,
+          message: `Scan pipeline initiated for target: ${target} [Job ID: ${res.job_id}] (Mode: ${mode.toUpperCase()})`,
         },
       ]);
     } catch (err) {
@@ -156,11 +189,15 @@ export default function App() {
   });
 
   return (
-    <div className="min-h-screen bg-[#0b1120] text-slate-100 flex flex-col">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#0b1120] text-slate-900 dark:text-slate-100 flex flex-col transition-colors duration-200">
       {/* Top Header */}
       <Header
         onOpenResearchGaps={() => setIsResearchGapOpen(true)}
         isScanning={isScanning}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        onLoadPreviousReport={handleLoadSavedReport}
+        hasFindings={findings.length > 0}
       />
 
       {/* Main Container */}
@@ -186,7 +223,7 @@ export default function App() {
           isScanning={isScanning}
         />
 
-        {/* 6 SUDARSHAN Summary Metric Counter Cards */}
+        {/* 6 Summary Metric Counter Cards */}
         <MetricCards
           summary={summary}
           activeFilter={statusFilter !== 'all' ? statusFilter : severityFilter !== 'all' ? severityFilter.toLowerCase() : 'all'}
@@ -220,33 +257,51 @@ export default function App() {
         {/* Findings List */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+            <h2 className="text-sm font-bold text-slate-800 dark:text-slate-300 uppercase tracking-wider flex items-center gap-2">
               <span>Detailed Vulnerability Findings</span>
-              <span className="text-xs bg-slate-800 text-cyan-400 px-2 py-0.5 rounded-full border border-slate-700">
+              <span className="text-xs bg-slate-200 dark:bg-slate-800 text-blue-700 dark:text-cyan-400 px-2 py-0.5 rounded-full border border-slate-300 dark:border-slate-700 font-semibold">
                 {filteredFindings.length}
               </span>
             </h2>
           </div>
 
           {filteredFindings.length === 0 ? (
-            <div className="bg-[#0f172a] border border-cyber-border rounded-xl p-12 text-center">
-              <p className="text-slate-400 text-sm mb-1">
-                {findings.length === 0
-                  ? 'No vulnerability findings recorded yet. Launch a scan above to initiate assessment.'
-                  : 'No findings match your active filter criteria.'}
-              </p>
-              {findings.length > 0 && (
-                <button
-                  onClick={() => {
-                    setStatusFilter('all');
-                    setSeverityFilter('all');
-                    setSearchQuery('');
-                  }}
-                  className="mt-3 text-xs text-cyan-400 hover:underline"
-                >
-                  Clear all filters
-                </button>
-              )}
+            <div className="bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-cyber-border rounded-xl p-10 text-center shadow-xs">
+              <div className="max-w-md mx-auto space-y-3">
+                <div className="w-12 h-12 mx-auto rounded-full bg-blue-50 dark:bg-slate-800 flex items-center justify-center text-blue-600 dark:text-cyan-400">
+                  <Shield className="w-6 h-6" />
+                </div>
+                <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">
+                  System Idle & Ready for Assessment
+                </h3>
+                <p className="text-slate-500 dark:text-slate-400 text-xs leading-relaxed">
+                  {findings.length === 0
+                    ? 'No vulnerability findings recorded yet. Configure your target above and click Launch Assessment to begin.'
+                    : 'No findings match your active filter criteria.'}
+                </p>
+                {findings.length === 0 ? (
+                  <div className="pt-2 flex items-center justify-center">
+                    <button
+                      onClick={handleLoadSavedReport}
+                      className="text-xs text-blue-600 dark:text-cyan-400 hover:underline font-semibold flex items-center gap-1 cursor-pointer"
+                    >
+                      <FileSearch className="w-3.5 h-3.5" />
+                      <span>Load Previous Assessment Report</span>
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setStatusFilter('all');
+                      setSeverityFilter('all');
+                      setSearchQuery('');
+                    }}
+                    className="mt-3 text-xs text-blue-600 dark:text-cyan-400 hover:underline font-semibold cursor-pointer"
+                  >
+                    Clear all filters
+                  </button>
+                )}
+              </div>
             </div>
           ) : (
             filteredFindings.map((finding) => (
@@ -260,7 +315,7 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-cyber-border bg-[#0f172a]/60 py-4 mt-12 text-center text-xs text-slate-500">
+      <footer className="border-t border-slate-200 dark:border-cyber-border bg-white/70 dark:bg-[#0f172a]/60 py-4 mt-12 text-center text-xs text-slate-500 dark:text-slate-400 transition-colors">
         <p>
           SECUREASSESS — Smart India Hackathon 2026 | NTRO Problem Statement 26163 | Target: {currentTarget}
         </p>

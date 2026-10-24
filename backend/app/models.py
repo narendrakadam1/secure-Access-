@@ -126,6 +126,11 @@ class LogEntry(BaseModel):
     ts: str = Field(..., description="ISO 8601 UTC timestamp")
     agent_name: Optional[str] = Field(default=None, description="Originating agent name")
 
+    # Redundant compatibility aliases for UI flexibility
+    message: Optional[str] = Field(default=None, description="Alias for line")
+    timestamp: Optional[str] = Field(default=None, description="Alias for ts")
+    source_agent: Optional[str] = Field(default=None, description="Alias for agent_name")
+
 
 class ToolOutput(BaseModel):
     """Persisted raw output artifact from a scanner execution."""

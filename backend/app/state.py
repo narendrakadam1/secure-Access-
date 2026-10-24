@@ -218,7 +218,7 @@ class StateManager:
             conn.commit()
             return next_seq
 
-    def get_logs(self, job_id: str, since_seq: int = 0, limit: int = 200) -> List[LogEntry]:
+    def get_logs(self, job_id: str, since_seq: int = 0, limit: int = 500) -> List[LogEntry]:
         with self._get_connection() as conn:
             rows = conn.execute(
                 """
@@ -235,8 +235,11 @@ class StateManager:
                 LogEntry(
                     seq=row["seq"],
                     agent_name=row["agent_name"],
+                    source_agent=row["agent_name"],
                     line=row["line"],
+                    message=row["line"],
                     ts=row["timestamp"],
+                    timestamp=row["timestamp"],
                 )
                 for row in rows
             ]

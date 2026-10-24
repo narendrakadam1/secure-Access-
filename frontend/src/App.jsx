@@ -317,7 +317,7 @@ export default function App() {
       {/* Footer */}
       <footer className="border-t border-slate-200 dark:border-cyber-border bg-white/70 dark:bg-[#0f172a]/60 py-4 mt-12 text-center text-xs text-slate-500 dark:text-slate-400 transition-colors">
         <p>
-          SECUREASSESS — Smart India Hackathon 2026 | NTRO Problem Statement 26163 | Target: {currentTarget}
+          SECUREASSESS — Autonomous Web & Source Code Security Assessment Platform | Target: {currentTarget}
         </p>
       </footer>
 

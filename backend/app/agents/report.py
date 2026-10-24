@@ -79,7 +79,7 @@ def run_report(
     report_data = {
         "assessment_metadata": {
             "platform": "SECUREASSESS - Autonomous Web-Application Security Assessment Platform",
-            "sih_problem_statement": "SIH 2026 - Problem Statement ID 26163 (NTRO)",
+            "audit_framework": "Autonomous Enterprise Security Assessment Standard",
             "job_id": job_id,
             "target": target,
             "mode": mode.value.upper(),
@@ -88,7 +88,7 @@ def run_report(
             "demo_mode_active": True,
         },
         "authorized_scope_statement": (
-            f"Authorized Security Assessment executed under NTRO Problem Statement 26163 guidelines. "
+            f"Authorized Security Assessment executed under Enterprise Cybersecurity Assessment guidelines. "
             f"Assessment restricted to target '{target}'. All validation checks adhered strictly to the "
             f"non-destructive Validator Playbook with pre-packet allowlist gating."
         ),

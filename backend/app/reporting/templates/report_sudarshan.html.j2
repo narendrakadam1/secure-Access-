@@ -1,11 +1,40 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SECUREASSESS - Vulnerability Scan Report - {{ assessment_metadata.job_id }}</title>
     <style>
         :root {
+            --bg-base: #f8fafc;
+            --bg-card: #ffffff;
+            --bg-card-subtle: #f1f5f9;
+            --border-color: #e2e8f0;
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --text-muted: #64748b;
+            --accent-cyan: #0284c7;
+            --accent-blue: #2563eb;
+            --confirmed-green: #059669;
+            --unverified-amber: #d97706;
+            --critical-red: #dc2626;
+            --high-crimson: #e11d48;
+            --medium-yellow: #ca8a04;
+            --low-slate: #64748b;
+            --finding-header-bg: #f8fafc;
+            --remediation-bg: #f0fdf4;
+            --remediation-border: #86efac;
+            --remediation-title: #15803d;
+            --remediation-text: #166534;
+            --code-block-bg: #dcfce7;
+            --code-block-text: #14532d;
+            --code-block-border: #bbf7d0;
+            --evidence-bg: #f8fafc;
+            --evidence-text: #334155;
+            --card-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.08), 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+        }
+
+        [data-theme="dark"] {
             --bg-base: #0b1120;
             --bg-card: #0f172a;
             --bg-card-subtle: #1e293b;
@@ -21,6 +50,17 @@
             --high-crimson: #f43f5e;
             --medium-yellow: #eab308;
             --low-slate: #64748b;
+            --finding-header-bg: rgba(30, 41, 59, 0.4);
+            --remediation-bg: rgba(6, 78, 59, 0.3);
+            --remediation-border: rgba(16, 185, 129, 0.4);
+            --remediation-title: #34d399;
+            --remediation-text: #e2e8f0;
+            --code-block-bg: #022c22;
+            --code-block-text: #6ee7b7;
+            --code-block-border: rgba(16, 185, 129, 0.3);
+            --evidence-bg: #020617;
+            --evidence-text: #94a3b8;
+            --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
         }
 
         body {
@@ -30,6 +70,7 @@
             margin: 0;
             padding: 24px;
             line-height: 1.5;
+            transition: background-color 0.2s ease, color 0.2s ease;
         }
 
         .header-container {
@@ -56,6 +97,7 @@
             align-items: center;
             justify-content: center;
             font-size: 24px;
+            box-shadow: 0 4px 10px rgba(14, 165, 233, 0.3);
         }
 
         h1 {
@@ -63,12 +105,30 @@
             font-size: 24px;
             font-weight: 700;
             letter-spacing: -0.5px;
+            color: var(--text-primary);
         }
 
         .subtitle {
             margin: 4px 0 0 0;
             font-size: 13px;
             color: var(--text-secondary);
+        }
+
+        .theme-toggle-btn {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: var(--card-shadow);
+            transition: all 0.15s ease;
+        }
+
+        .theme-toggle-btn:hover {
+            background-color: var(--bg-card-subtle);
         }
 
         .metadata-strip {
@@ -80,6 +140,7 @@
             grid-template-columns: repeat(4, 1fr);
             gap: 16px;
             margin-bottom: 28px;
+            box-shadow: var(--card-shadow);
         }
 
         .meta-item {
@@ -93,6 +154,7 @@
             letter-spacing: 0.5px;
             color: var(--text-muted);
             margin-bottom: 4px;
+            font-weight: 600;
         }
 
         .meta-value {
@@ -104,24 +166,29 @@
 
         .badge-pill {
             display: inline-block;
-            padding: 2px 8px;
+            padding: 3px 10px;
             border-radius: 9999px;
             font-size: 11px;
-            font-weight: 600;
+            font-weight: 700;
             text-align: center;
             width: fit-content;
         }
 
-        .badge-dast { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4); }
-        .badge-sast { background: rgba(168, 85, 247, 0.2); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.4); }
-        .badge-success { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); }
+        .badge-dast { background: rgba(59, 130, 246, 0.15); color: #2563eb; border: 1px solid rgba(59, 130, 246, 0.3); }
+        [data-theme="dark"] .badge-dast { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4); }
+
+        .badge-sast { background: rgba(168, 85, 247, 0.15); color: #7e22ce; border: 1px solid rgba(168, 85, 247, 0.3); }
+        [data-theme="dark"] .badge-sast { background: rgba(168, 85, 247, 0.2); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.4); }
+
+        .badge-success { background: rgba(16, 185, 129, 0.15); color: #047857; border: 1px solid rgba(16, 185, 129, 0.3); }
+        [data-theme="dark"] .badge-success { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); }
 
         /* Summary Cards */
         .summary-section-title {
-            font-size: 18px;
+            font-size: 17px;
             font-weight: 700;
             margin-bottom: 16px;
-            color: #38bdf8;
+            color: var(--accent-cyan);
             display: flex;
             align-items: center;
             gap: 8px;
@@ -142,13 +209,14 @@
             display: flex;
             flex-direction: column;
             justify-content: space-between;
+            box-shadow: var(--card-shadow);
         }
 
-        .counter-card.card-total { border-left: 4px solid #818cf8; }
+        .counter-card.card-total { border-left: 4px solid var(--accent-blue); }
         .counter-card.card-confirmed { border-left: 4px solid var(--confirmed-green); }
         .counter-card.card-unverified { border-left: 4px solid var(--unverified-amber); }
-        .counter-card.card-high { border-left: 4px solid var(--high-crimson); }
         .counter-card.card-critical { border-left: 4px solid var(--critical-red); }
+        .counter-card.card-high { border-left: 4px solid var(--high-crimson); }
         .counter-card.card-medium { border-left: 4px solid var(--medium-yellow); }
 
         .counter-number {
@@ -171,20 +239,20 @@
             border-radius: 10px;
             margin-bottom: 20px;
             overflow: hidden;
-            border-left: 4px solid var(--high-crimson);
+            box-shadow: var(--card-shadow);
         }
 
-        .finding-card.severity-Critical { border-left-color: var(--critical-red); }
-        .finding-card.severity-High { border-left-color: var(--high-crimson); }
-        .finding-card.severity-Medium { border-left-color: var(--medium-yellow); }
-        .finding-card.severity-Low { border-left-color: var(--low-slate); }
+        .finding-card.severity-Critical { border-left: 4px solid var(--critical-red); }
+        .finding-card.severity-High { border-left: 4px solid var(--high-crimson); }
+        .finding-card.severity-Medium { border-left: 4px solid var(--medium-yellow); }
+        .finding-card.severity-Low { border-left: 4px solid var(--low-slate); }
 
         .finding-header {
             padding: 16px 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background: rgba(30, 41, 59, 0.4);
+            background: var(--finding-header-bg);
             border-bottom: 1px solid var(--border-color);
         }
 
@@ -201,12 +269,6 @@
             color: var(--text-primary);
         }
 
-        .badges-group {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
         .badge-severity {
             padding: 3px 10px;
             border-radius: 6px;
@@ -214,22 +276,35 @@
             font-weight: 700;
             text-transform: uppercase;
         }
-        .badge-severity.Critical { background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid #ef4444; }
-        .badge-severity.High { background: rgba(244, 63, 94, 0.2); color: #fda4af; border: 1px solid #f43f5e; }
-        .badge-severity.Medium { background: rgba(234, 179, 8, 0.2); color: #fde047; border: 1px solid #eab308; }
-        .badge-severity.Low { background: rgba(100, 116, 139, 0.2); color: #cbd5e1; border: 1px solid #64748b; }
+        .badge-severity.Critical { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+        .badge-severity.High { background: #ffe4e6; color: #9f1239; border: 1px solid #fda4af; }
+        .badge-severity.Medium { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+        .badge-severity.Low { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; }
 
-        .badge-status-confirmed { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; border: 1px solid #10b981; font-weight: 700; }
-        .badge-status-unverified { background: rgba(245, 158, 11, 0.2); color: #fcd34d; border: 1px solid #f59e0b; font-weight: 700; }
+        [data-theme="dark"] .badge-severity.Critical { background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid #ef4444; }
+        [data-theme="dark"] .badge-severity.High { background: rgba(244, 63, 94, 0.2); color: #fda4af; border: 1px solid #f43f5e; }
+        [data-theme="dark"] .badge-severity.Medium { background: rgba(234, 179, 8, 0.2); color: #fde047; border: 1px solid #eab308; }
+        [data-theme="dark"] .badge-severity.Low { background: rgba(100, 116, 139, 0.2); color: #cbd5e1; border: 1px solid #64748b; }
+
+        .badge-status-confirmed { background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7; font-weight: 700; }
+        .badge-status-unverified { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; font-weight: 700; }
+
+        [data-theme="dark"] .badge-status-confirmed { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; border: 1px solid #10b981; }
+        [data-theme="dark"] .badge-status-unverified { background: rgba(245, 158, 11, 0.2); color: #fcd34d; border: 1px solid #f59e0b; }
 
         .badge-confidence {
-            background: rgba(168, 85, 247, 0.2);
-            color: #d8b4fe;
-            border: 1px solid #c084fc;
+            background: #f3e8ff;
+            color: #6b21a8;
+            border: 1px solid #d8b4fe;
             padding: 3px 8px;
             border-radius: 9999px;
             font-size: 11px;
             font-weight: 600;
+        }
+        [data-theme="dark"] .badge-confidence {
+            background: rgba(168, 85, 247, 0.2);
+            color: #d8b4fe;
+            border: 1px solid #c084fc;
         }
 
         .finding-body {
@@ -238,7 +313,7 @@
 
         .detail-row {
             display: grid;
-            grid-template-columns: 140px 1fr;
+            grid-template-columns: 160px 1fr;
             margin-bottom: 8px;
             font-size: 13px;
         }
@@ -256,8 +331,8 @@
 
         /* Remediation Box */
         .remediation-box {
-            background: rgba(6, 78, 59, 0.3);
-            border: 1px solid rgba(16, 185, 129, 0.4);
+            background: var(--remediation-bg);
+            border: 1px solid var(--remediation-border);
             border-radius: 8px;
             padding: 16px;
             margin-top: 16px;
@@ -267,7 +342,7 @@
         .remediation-title {
             font-size: 13px;
             font-weight: 700;
-            color: #34d399;
+            color: var(--remediation-title);
             margin-bottom: 8px;
             display: flex;
             align-items: center;
@@ -276,32 +351,32 @@
 
         .remediation-text {
             font-size: 12px;
-            color: #e2e8f0;
+            color: var(--text-primary);
             margin-bottom: 8px;
         }
 
         .code-block {
-            background-color: #022c22;
-            border: 1px solid rgba(16, 185, 129, 0.3);
+            background-color: var(--code-block-bg);
+            border: 1px solid var(--code-block-border);
             border-radius: 6px;
             padding: 10px 14px;
             font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
             font-size: 12px;
-            color: #6ee7b7;
+            color: var(--code-block-text);
             overflow-x: auto;
             white-space: pre-wrap;
         }
 
         /* Evidence Box */
         .evidence-box {
-            background: #020617;
+            background: var(--evidence-bg);
             border: 1px solid var(--border-color);
             border-radius: 6px;
             padding: 12px 14px;
             margin-top: 12px;
             font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
             font-size: 11px;
-            color: #94a3b8;
+            color: var(--evidence-text);
             white-space: pre-wrap;
             max-height: 180px;
             overflow-y: auto;
@@ -336,6 +411,7 @@
             border-radius: 10px;
             padding: 20px;
             margin-top: 36px;
+            box-shadow: var(--card-shadow);
         }
     </style>
 </head>
@@ -347,11 +423,12 @@
             <div class="shield-icon">🛡️</div>
             <div>
                 <h1>Vulnerability Scan Report</h1>
-                <p class="subtitle">Autonomous Security Assessment Powered by SECUREASSESS AI Multi-Agent Pipeline</p>
+                <p class="subtitle">Autonomous Security Assessment Powered by SECUREASSESS Multi-Agent Engine</p>
             </div>
         </div>
-        <div>
-            <span class="badge-pill badge-success">SIH 2026 PS ID 26163</span>
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <span class="badge-pill badge-success">Automated SecOps Audit</span>
+            <button id="themeToggleBtn" onclick="toggleReportTheme()" class="theme-toggle-btn">🌓 Toggle Theme</button>
         </div>
     </div>
 
@@ -382,9 +459,9 @@
     </div>
 
     <!-- Executive Summary -->
-    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 20px; margin-bottom: 28px;">
+    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 20px; margin-bottom: 28px; box-shadow: var(--card-shadow);">
         <h3 style="margin-top: 0; font-size: 15px; color: var(--accent-cyan);">Executive Summary</h3>
-        <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;">{{ executive_summary }}</p>
+        <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.6;">{{ executive_summary }}</p>
         <div style="font-size: 11px; color: var(--text-muted); font-style: italic;">
             {{ authorized_scope_statement }}
         </div>
@@ -394,7 +471,7 @@
     <div class="summary-section-title">📊 Scan Summary</div>
     <div class="summary-grid">
         <div class="counter-card card-total">
-            <div class="counter-number" style="color: #a5b4fc;">{{ metrics_summary.total }}</div>
+            <div class="counter-number" style="color: var(--accent-blue);">{{ metrics_summary.total }}</div>
             <div class="counter-label">Total Findings</div>
         </div>
         <div class="counter-card card-confirmed">
@@ -432,22 +509,22 @@
                 </span>
                 <span class="badge-confidence">Confidence: {{ finding.confidence_pct }}%</span>
             </div>
-            <div style="font-size: 12px; color: var(--text-muted); font-weight: 600;">
+            <div style="font-size: 12px; color: var(--text-muted); font-weight: 700;">
                 CVSS: {{ finding.cvss_score }}
             </div>
         </div>
         <div class="finding-body">
             <div class="detail-row">
                 <span class="detail-label">Affected Component:</span>
-                <span class="detail-value">{{ finding.affected_component }}</span>
+                <span class="detail-value" style="color: var(--accent-blue);">{{ finding.affected_component }}</span>
             </div>
             <div class="detail-row">
                 <span class="detail-label">OWASP Category:</span>
                 <span class="detail-value" style="font-family: inherit;">{{ finding.owasp_category }}</span>
             </div>
             <div class="detail-row">
-                <span class="detail-label">SIH Scope Class:</span>
-                <span class="detail-value" style="font-family: inherit;">{{ finding.sih_scope_category }}</span>
+                <span class="detail-label">Security Domain:</span>
+                <span class="detail-value" style="font-family: inherit; font-weight: 600;">{{ finding.sih_scope_category }}</span>
             </div>
             <div class="detail-row">
                 <span class="detail-label">CVSS 3.1 Vector:</span>
@@ -458,45 +535,38 @@
                 <span class="detail-value">{{ finding.source_tool }}</span>
             </div>
 
-            <!-- Description & Impact -->
-            <p style="font-size: 13px; color: var(--text-secondary); margin: 12px 0 8px 0;">
+            <div style="margin-top: 14px; font-size: 13px; color: var(--text-primary); line-height: 1.6;">
                 {{ finding.description }}
-            </p>
-            <div style="font-size: 12px; color: #cbd5e1; margin-bottom: 12px;">
-                <strong>Business Impact:</strong> {{ finding.business_impact }}
             </div>
 
-            <!-- Steps to Reproduce -->
-            {% if finding.steps_to_reproduce %}
-            <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">
-                <strong style="color: var(--text-primary);">Steps to Reproduce:</strong>
-                <ul style="margin: 4px 0 0 0; padding-left: 20px;">
-                    {% for step in finding.steps_to_reproduce %}
-                    <li>{{ step }}</li>
-                    {% endfor %}
-                </ul>
+            {% if finding.business_impact %}
+            <div style="margin-top: 10px; font-size: 12px; color: var(--text-secondary); background: var(--bg-card-subtle); padding: 10px 14px; border-radius: 6px; border: 1px solid var(--border-color);">
+                <strong style="color: var(--critical-red);">Business Impact:</strong> {{ finding.business_impact }}
             </div>
             {% endif %}
 
             <!-- Remediation -->
             <div class="remediation-box">
-                <div class="remediation-title">🛠️ Remediation Guidance</div>
+                <div class="remediation-title">
+                    🛠️ Actionable Remediation Guidance
+                </div>
                 <div class="remediation-text"><strong>Overview:</strong> {{ finding.remediation.description }}</div>
-                <div class="remediation-text"><strong>Actionable Fix:</strong> {{ finding.remediation.fix }}</div>
+                <div class="remediation-text"><strong>Fix:</strong> {{ finding.remediation.fix }}</div>
+                {% if finding.remediation.example_code %}
                 <div class="code-block">{{ finding.remediation.example_code }}</div>
+                {% endif %}
             </div>
 
-            <!-- PoC Evidence (if Confirmed) -->
+            <!-- Evidence -->
             {% if finding.poc_evidence %}
-            <div style="margin-top: 12px;">
-                <span style="font-size: 12px; font-weight: 700; color: var(--confirmed-green);">✓ Verified PoC Evidence:</span>
+            <div style="margin-top: 14px;">
+                <span style="font-size: 12px; font-weight: 700; color: var(--confirmed-green);">✔ Verified PoC Evidence:</span>
                 <div class="evidence-box">{{ finding.poc_evidence }}</div>
             </div>
             {% endif %}
 
-            <!-- Raw Evidence -->
-            {% if finding.evidence %}
-            <div style="margin-top: 12px;">
+            {% if finding.evidence and not finding.poc_evidence %}
+            <div style="margin-top: 14px;">
                 <span style="font-size: 12px; font-weight: 600; color: var(--text-secondary);">Raw Scanner Evidence:</span>
                 <div class="evidence-box">{% for ev in finding.evidence %}{{ ev }}
 {% endfor %}</div>
@@ -538,13 +608,13 @@
             <thead>
                 <tr>
                     <th style="width: 30%;">Research Gap & Literature Citation</th>
-                    <th>SECUREASSESS Architectural Solution</th>
+                    <th>Architectural Solution</th>
                 </tr>
             </thead>
             <tbody>
                 {% for gap, sol in research_gap_coverage_appendix.items() %}
                 <tr>
-                    <td style="font-weight: 700; color: #93c5fd;">{{ gap }}</td>
+                    <td style="font-weight: 700; color: var(--accent-blue);">{{ gap }}</td>
                     <td style="color: var(--text-secondary);">{{ sol }}</td>
                 </tr>
                 {% endfor %}
@@ -552,5 +622,24 @@
         </table>
     </div>
 
+    <script>
+        function toggleReportTheme() {
+            var html = document.documentElement;
+            var current = html.getAttribute('data-theme');
+            var next = current === 'dark' ? 'light' : 'dark';
+            html.setAttribute('data-theme', next);
+            try {
+                localStorage.setItem('report_theme', next);
+            } catch (e) {}
+        }
+
+        // Initialize theme matching main dashboard
+        (function() {
+            try {
+                var saved = localStorage.getItem('secureassess_theme') || localStorage.getItem('report_theme') || 'light';
+                document.documentElement.setAttribute('data-theme', saved);
+            } catch (e) {}
+        })();
+    </script>
 </body>
 </html>

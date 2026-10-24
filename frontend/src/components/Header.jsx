@@ -23,11 +23,11 @@ export default function Header({
                 SECUREASSESS
               </h1>
               <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 border border-sky-300 dark:bg-cyan-500/10 dark:text-cyan-400 dark:border-cyan-500/30">
-                SIH 2026 PS 26163
+                Enterprise v2.4
               </span>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Autonomous LLM-Orchestrated Security Assessment Engine — NTRO
+              Autonomous LLM-Orchestrated Security Assessment Engine
             </p>
           </div>
         </div>

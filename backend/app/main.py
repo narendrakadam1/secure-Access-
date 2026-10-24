@@ -157,7 +157,7 @@ def _get_or_build_report_data(job_id: str) -> dict:
     return {
         "assessment_metadata": {
             "platform": "SECUREASSESS - Autonomous Web-Application Security Assessment Platform",
-            "sih_problem_statement": "SIH 2026 - Problem Statement ID 26163 (NTRO)",
+            "framework": "Autonomous Enterprise Security Assessment Standard",
             "job_id": scan.job_id,
             "target": scan.target,
             "mode": scan.mode.value.upper(),
@@ -166,7 +166,7 @@ def _get_or_build_report_data(job_id: str) -> dict:
             "demo_mode_active": True,
         },
         "authorized_scope_statement": (
-            f"Authorized Security Assessment executed under NTRO Problem Statement 26163 guidelines. "
+            f"Authorized Security Assessment executed under Enterprise Cybersecurity Guidelines. "
             f"Assessment restricted to target '{scan.target}'."
         ),
         "executive_summary": (
@@ -247,6 +247,17 @@ def get_latest_report_html():
     if standard_file.exists():
         with open(standard_file, "r", encoding="utf-8") as f:
             return HTMLResponse(content=f.read())
+    
+    # Dynamic generation from latest report.json
+    json_file = DATA_DIR / "report.json"
+    if json_file.exists():
+        with open(json_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        html_content = report_generator.render_html(data)
+        with open(standard_file, "w", encoding="utf-8") as f:
+            f.write(html_content)
+        return HTMLResponse(content=html_content)
+
     raise HTTPException(status_code=404, detail="No scan report HTML has been generated yet.")
 
 
@@ -254,6 +265,13 @@ def get_latest_report_html():
 def get_latest_report_pdf():
     """Serves latest standard report PDF deliverable."""
     standard_file = DATA_DIR / "secureassess.pdf"
+    if not standard_file.exists():
+        json_file = DATA_DIR / "report.json"
+        if json_file.exists():
+            with open(json_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            report_generator.render_pdf(data, standard_file)
+
     if standard_file.exists():
         return FileResponse(
             path=str(standard_file),

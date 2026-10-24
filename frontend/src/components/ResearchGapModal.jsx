@@ -30,7 +30,7 @@ const RESEARCH_GAPS = [
   {
     citation: '#4 EvoMaster (2021)',
     gap: 'Lack of Authorization / RBAC Policy Modeling',
-    solution: 'Explicit classification of authorization/RBAC and authentication & session scope categories mapped directly to SIH 26163 evaluation criteria.',
+    solution: 'Explicit classification of authorization/RBAC and authentication & session scope categories mapped directly to OWASP Top 10 and enterprise evaluation criteria.',
   },
   {
     citation: '#3 Kalopisis et al. (2024)',
@@ -56,7 +56,7 @@ export default function ResearchGapModal({ isOpen, onClose }) {
                 Research Gap Coverage Matrix
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Academic & Industry Grounding for Smart India Hackathon 2026 (PS ID 26163)
+                Academic & Industry Grounding for Autonomous Security Assessment Platforms
               </p>
             </div>
           </div>
@@ -98,7 +98,7 @@ export default function ResearchGapModal({ isOpen, onClose }) {
         <div className="p-4 border-t border-slate-200 dark:border-cyber-border bg-slate-50 dark:bg-slate-900/60 flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
           <div className="flex items-center gap-2">
             <Shield className="w-4 h-4 text-blue-600 dark:text-cyan-400" />
-            <span>SIH 2026 Problem Statement ID 26163 (NTRO) Compliance Engine</span>
+            <span>Autonomous Security Assessment & Compliance Framework</span>
           </div>
           <button
             onClick={onClose}

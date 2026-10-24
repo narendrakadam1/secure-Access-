@@ -108,7 +108,7 @@ export default function FindingCard({ finding }) {
               <span className="text-slate-800 dark:text-slate-200 font-medium">{finding.owasp_category || 'N/A'}</span>
             </div>
             <div>
-              <span className="text-slate-500 dark:text-slate-500 font-semibold block uppercase text-[10px]">SIH Scope Class</span>
+              <span className="text-slate-500 dark:text-slate-500 font-semibold block uppercase text-[10px]">Security Domain</span>
               <span className="text-slate-800 dark:text-indigo-300 font-medium">{finding.sih_scope_category || 'N/A'}</span>
             </div>
             <div>

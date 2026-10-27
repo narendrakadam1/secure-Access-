@@ -51,7 +51,7 @@ class AuditLogger:
             "job_id": job_id,
             "target": target,
             "mode": mode,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now().astimezone().isoformat(),
             "allowlist_gate_passed": True,
             "message": f"Scan {job_id} initiated in {mode.upper()} mode for target {target}",
         }
@@ -78,7 +78,7 @@ class AuditLogger:
             "container": container,
             "exit_code": exit_code,
             "duration_s": round(duration_s, 3),
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now().astimezone().isoformat(),
         }
         self._write_entry(entry, job_id)
 
@@ -109,7 +109,7 @@ class AuditLogger:
             "latency_ms": round(latency_ms, 2),
             "outcome": outcome,  # "CONFIRMED" or "UNVERIFIED"
             "details": details or {},
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now().astimezone().isoformat(),
         }
         self._write_entry(entry, job_id)
 
@@ -130,7 +130,7 @@ class AuditLogger:
             "summary": summary,
             "status": "FAILED" if error_message else "COMPLETED",
             "error_message": error_message,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now().astimezone().isoformat(),
         }
         self._write_entry(entry, job_id)
 
@@ -141,7 +141,7 @@ class AuditLogger:
             "target": target,
             "reason": reason,
             "allowlist_gate_passed": False,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now().astimezone().isoformat(),
         }
         self._write_entry(entry)
 

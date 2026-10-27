@@ -47,10 +47,23 @@ class Orchestrator:
         self.llm_client = llm_client or LLMClient()
         self.active_job_id: Optional[str] = None
         self._lock = asyncio.Lock()
+        self._cancelled_jobs: set[str] = set()
 
     def is_scan_running(self) -> bool:
         """Returns True if a scan is currently active."""
         return self.active_job_id is not None
+
+    def is_cancelled(self, job_id: str) -> bool:
+        """Checks if a job has been requested to cancel."""
+        return job_id in self._cancelled_jobs
+
+    async def cancel_scan(self, job_id: str) -> bool:
+        """Requests cancellation for an active scan and releases resources."""
+        self._cancelled_jobs.add(job_id)
+        self.state_mgr.append_log(job_id, "[!] Assessment cancelled by operator request.", "Orchestrator")
+        self.state_mgr.update_phase(job_id, ScanPhase.FAILED, error_message="Assessment cancelled by operator.")
+        await self.release_scan_slot(job_id)
+        return True
 
     async def acquire_scan_slot(self, job_id: str) -> bool:
         """
@@ -90,10 +103,14 @@ class Orchestrator:
         try:
             self.audit_logger.log_scan_init(job_id=job_id, target=target, mode=mode.value)
             self.state_mgr.append_log(job_id, f"Scan {job_id} launched. Budget: {timeout_budget}s. Demo Mode: {is_demo}.", "Orchestrator")
+            model_info = self.llm_client.get_active_model_description()
+            self.state_mgr.append_log(job_id, f"AI Neural Gateway: {model_info} | Context: {self.llm_client.context_window} tokens | Schema Enforcement: JSON Active", "Orchestrator")
 
+            # ------------------------------------------------------------------
             # ------------------------------------------------------------------
             # Phase 1: RECON
             # ------------------------------------------------------------------
+            if self.is_cancelled(job_id): return
             self.state_mgr.update_phase(job_id, ScanPhase.RECON)
             self.state_mgr.append_log(job_id, "=== [PHASE 1/5] RECONNAISSANCE STARTED ===", "Orchestrator")
             try:
@@ -105,6 +122,7 @@ class Orchestrator:
             # ------------------------------------------------------------------
             # Phase 2: SCANNING
             # ------------------------------------------------------------------
+            if self.is_cancelled(job_id): return
             self.state_mgr.update_phase(job_id, ScanPhase.SCANNING)
             self.state_mgr.append_log(job_id, "=== [PHASE 2/5] VULNERABILITY SCANNING STARTED ===", "Orchestrator")
             try:
@@ -116,6 +134,7 @@ class Orchestrator:
             # ------------------------------------------------------------------
             # Phase 3: ANALYSIS
             # ------------------------------------------------------------------
+            if self.is_cancelled(job_id): return
             self.state_mgr.update_phase(job_id, ScanPhase.ANALYSIS)
             self.state_mgr.append_log(job_id, "=== [PHASE 3/5] AI ANALYSIS & CORRELATION STARTED ===", "Orchestrator")
             try:
@@ -127,6 +146,7 @@ class Orchestrator:
             # ------------------------------------------------------------------
             # Phase 4: VALIDATION
             # ------------------------------------------------------------------
+            if self.is_cancelled(job_id): return
             self.state_mgr.update_phase(job_id, ScanPhase.VALIDATION)
             self.state_mgr.append_log(job_id, "=== [PHASE 4/5] NON-DESTRUCTIVE VALIDATION STARTED ===", "Orchestrator")
             try:
@@ -138,6 +158,7 @@ class Orchestrator:
             # ------------------------------------------------------------------
             # Phase 5: REPORT
             # ------------------------------------------------------------------
+            if self.is_cancelled(job_id): return
             self.state_mgr.update_phase(job_id, ScanPhase.REPORT)
             self.state_mgr.append_log(job_id, "=== [PHASE 5/5] REPORT SYNTHESIS STARTED ===", "Orchestrator")
             try:
@@ -149,6 +170,7 @@ class Orchestrator:
             # ------------------------------------------------------------------
             # Completion
             # ------------------------------------------------------------------
+            if self.is_cancelled(job_id): return
             duration = time.time() - start_time
             self.state_mgr.update_phase(job_id, ScanPhase.COMPLETED)
             summary = self.state_mgr.get_findings_summary(job_id)
@@ -178,4 +200,5 @@ class Orchestrator:
             )
             self.state_mgr.append_log(job_id, error_msg, "Orchestrator")
         finally:
+            self._cancelled_jobs.discard(job_id)
             await self.release_scan_slot(job_id)

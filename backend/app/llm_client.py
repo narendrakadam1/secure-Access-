@@ -29,10 +29,13 @@ logger = logging.getLogger("secureassess.llm")
 def clean_and_repair_json(raw_text: str) -> Dict[str, Any]:
     """
     Robust JSON extractor and repair utility.
-    Strips markdown code fences, handles leading/trailing conversational filler,
-    and removes syntax errors like trailing commas.
+    Strips reasoning blocks (<think>...</think>), markdown code fences,
+    handles leading/trailing conversational filler, and removes trailing commas.
     """
     text = raw_text.strip()
+
+    # 0. Strip reasoning <think>...</think> tags if model produces chain-of-thought
+    text = re.sub(r"<think>[\s\S]*?</think>", "", text, flags=re.IGNORECASE).strip()
 
     # 1. Strip markdown code fences if present
     if "```" in text:
@@ -359,7 +362,7 @@ class DeterministicSecurityAnalyzer:
 class LLMClient:
     """
     Unified LLM Client providing resilient multi-tier inference:
-    Cloud LLM -> Local Ollama -> Deterministic Fallback.
+    Cloud LLM (NVIDIA NIM / OpenAI) -> Local Ollama (qwen3.5:4b, gemma2:9b, etc.) -> Deterministic Rule Fallback.
     """
 
     def __init__(
@@ -369,7 +372,9 @@ class LLMClient:
         use_cloud_llm: Optional[bool] = None,
         cloud_base_url: Optional[str] = None,
         cloud_api_key: Optional[str] = None,
-        timeout_s: float = 30.0,
+        cloud_model: Optional[str] = None,
+        timeout_s: Optional[float] = None,
+        context_window: Optional[int] = None,
     ):
         self.ollama_url = ollama_url or os.getenv("OLLAMA_URL", "http://localhost:11434")
         
@@ -387,17 +392,23 @@ class LLMClient:
         self.use_cloud = use_cloud_llm if use_cloud_llm is not None else env_cloud
         self.cloud_base_url = (cloud_base_url or os.getenv("CLOUD_LLM_BASE_URL", "https://integrate.api.nvidia.com/v1")).rstrip("/")
         self.cloud_api_key = cloud_api_key or os.getenv("CLOUD_LLM_API_KEY", "")
-        self.timeout_s = timeout_s
+        self.cloud_model = cloud_model or os.getenv("CLOUD_LLM_MODEL", "meta/llama-3.1-70b-instruct")
+
+        # 120s timeout ensures models like qwen3.5:4b on CPU/GPU can finish reasoning without premature cutoffs
+        self.timeout_s = timeout_s or float(os.getenv("LLM_TIMEOUT_S", "120.0"))
+        # 8192 context window ensures candidate AST findings & HTTP evidence fit without truncation
+        self.context_window = context_window or int(os.getenv("LLM_CONTEXT_WINDOW", "8192"))
+        self.use_instant = False
 
     @staticmethod
     def _auto_detect_ollama_model(ollama_url: str) -> Optional[str]:
         """Queries local Ollama tags to find installed models."""
         try:
-            with httpx.Client(timeout=1.5) as client:
+            with httpx.Client(timeout=2.0) as client:
                 r = client.get(f"{ollama_url}/api/tags")
                 if r.status_code == 200:
                     models = [m.get("name", "") for m in r.json().get("models", [])]
-                    for candidate in ["qwen3.5:4b", "qwen2.5-coder:7b", "gemma2:9b"]:
+                    for candidate in ["qwen3.5:4b", "gemma2:9b", "gemma4:26b", "qwen2.5-coder:7b"]:
                         for m in models:
                             if candidate in m:
                                 return m
@@ -407,6 +418,124 @@ class LLMClient:
             pass
         return None
 
+    def set_model(self, model_name: str) -> None:
+        """Dynamically switches active model (Instant rule engine, Ollama local model, or Cloud)."""
+        name_clean = model_name.strip()
+        if name_clean.lower() in ("instant", "default", "deterministic", "rule_engine", "none", "fast"):
+            self.use_instant = True
+            self.use_cloud = False
+            self.ollama_model = "instant"
+            logger.info("Switched active AI engine to Instant Demo Mode (Zero-delay rule engine)")
+        elif name_clean.lower().startswith("cloud") or name_clean.startswith("meta/") or name_clean.startswith("nvidia/") or name_clean.startswith("minimaxai/"):
+            self.use_instant = False
+            self.use_cloud = True
+            if ":" in name_clean:
+                self.cloud_model = name_clean.split(":", 1)[1]
+            else:
+                self.cloud_model = name_clean
+            logger.info(f"Switched active AI engine to Cloud LLM ({self.cloud_model})")
+        else:
+            self.use_instant = False
+            self.use_cloud = False
+            self.ollama_model = name_clean
+            logger.info(f"Switched active AI engine to Local Ollama model: {self.ollama_model}")
+
+    def set_cloud_key(self, api_key: str, base_url: Optional[str] = None, model: Optional[str] = None) -> None:
+        """Configures Cloud / NVIDIA NIM API key dynamically."""
+        self.cloud_api_key = api_key.strip()
+        if base_url:
+            self.cloud_base_url = base_url.strip().rstrip("/")
+        if model:
+            self.cloud_model = model.strip()
+        self.use_cloud = bool(self.cloud_api_key and self.cloud_api_key != "your_nvidia_nim_or_openai_api_key_here")
+        logger.info(f"Cloud LLM API key updated (use_cloud={self.use_cloud})")
+
+    def get_active_model_description(self) -> str:
+        """Returns human-readable active model description for logging and UI."""
+        if getattr(self, "use_instant", False) or self.ollama_model.lower() in ("instant", "default"):
+            return "Autonomous Rule Engine (Deterministic / Instant)"
+        if self.use_cloud:
+            return f"NVIDIA NIM / Cloud ({self.cloud_model})"
+        return f"Ollama ({self.ollama_model}) [Ctx: {self.context_window}]"
+
+    def get_model_catalog(self) -> Dict[str, Any]:
+        """Queries local Ollama for installed models and returns catalog with cloud options."""
+        installed: List[Dict[str, Any]] = []
+        ollama_online = False
+
+        try:
+            with httpx.Client(timeout=2.5) as client:
+                r = client.get(f"{self.ollama_url}/api/tags")
+                if r.status_code == 200:
+                    ollama_online = True
+                    for m in r.json().get("models", []):
+                        name = m.get("name", "")
+                        details = m.get("details", {})
+                        size_gb = round(m.get("size", 0) / (1024 ** 3), 1)
+                        capabilities = m.get("capabilities", ["completion"])
+                        installed.append({
+                            "name": name,
+                            "display_name": f"{name} ({details.get('parameter_size', '')} {size_gb}GB)",
+                            "parameter_size": details.get("parameter_size", ""),
+                            "size_gb": size_gb,
+                            "context_length": details.get("context_length", self.context_window),
+                            "capabilities": capabilities,
+                            "active": (not self.use_cloud and name == self.ollama_model),
+                        })
+        except Exception as e:
+            logger.warning(f"Unable to query Ollama tags: {e}")
+
+        # Cloud models catalog (verified models on NVIDIA NIM with user's key)
+        cloud_ready = bool(self.cloud_api_key and self.cloud_api_key != "your_nvidia_nim_or_openai_api_key_here")
+        cloud_models = [
+            {
+                "name": "cloud:minimaxai/minimax-m3.1-flash",
+                "display_name": "NVIDIA NIM: minimax-m3.1-flash [Ultra-Fast]",
+                "provider": "NVIDIA NIM",
+                "active": (self.use_cloud and "minimax" in self.cloud_model),
+            },
+            {
+                "name": "cloud:nvidia/nemotron-3.5-lightning-30b-a3b",
+                "display_name": "NVIDIA NIM: nemotron-3.5-lightning-30b [Reasoning]",
+                "provider": "NVIDIA NIM",
+                "active": (self.use_cloud and "nemotron-3.5-lightning" in self.cloud_model),
+            },
+            {
+                "name": "cloud:meta/muse-glimmer-30b",
+                "display_name": "NVIDIA NIM: meta/muse-glimmer-30b",
+                "provider": "NVIDIA NIM",
+                "active": (self.use_cloud and "muse-glimmer" in self.cloud_model),
+            },
+            {
+                "name": "cloud:nvidia/nemotron-3-ultra-550b-a55b",
+                "display_name": "NVIDIA NIM: nemotron-3-ultra-550b [Enterprise]",
+                "provider": "NVIDIA NIM",
+                "active": (self.use_cloud and "nemotron-3-ultra" in self.cloud_model),
+            },
+            {
+                "name": "cloud:stepfun-ai/step-5-preview",
+                "display_name": "NVIDIA NIM: stepfun/step-5-preview",
+                "provider": "NVIDIA NIM",
+                "active": (self.use_cloud and "step-5" in self.cloud_model),
+            },
+        ]
+
+        return {
+            "ollama_online": ollama_online,
+            "ollama_url": self.ollama_url,
+            "active_engine": "instant" if getattr(self, "use_instant", False) else ("cloud" if self.use_cloud else "ollama"),
+            "active_model": "instant" if getattr(self, "use_instant", False) else (self.cloud_model if self.use_cloud else self.ollama_model),
+            "context_window": self.context_window,
+            "installed_models": installed,
+            "cloud_ready": cloud_ready,
+            "cloud_models": cloud_models,
+            "instant_option": {
+                "name": "instant",
+                "display_name": "Autonomous Rule Engine (Deterministic / Instant)",
+                "provider": "Deterministic Security Engine",
+                "active": getattr(self, "use_instant", False),
+            },
+        }
 
     def generate(
         self,
@@ -420,26 +549,32 @@ class LLMClient:
         Attempts Cloud LLM -> Ollama -> Deterministic Rule Fallback.
         Guaranteed to return valid dictionary conforming to expected schema.
         """
+        # 0. Instant Demo Mode (Zero-delay spot demo for judges)
+        if getattr(self, "use_instant", False) or self.ollama_model.lower() in ("instant", "default"):
+            logger.info(f"Instant Demo Mode engaged for task_type='{task_type}'")
+            if task_type == "report":
+                return DeterministicSecurityAnalyzer.generate_impact_and_remediation(prompt)
+            else:
+                return DeterministicSecurityAnalyzer.analyze_findings(prompt)
+
         # 1. Attempt Cloud LLM if enabled and configured
         if self.use_cloud and self.cloud_api_key and self.cloud_api_key != "your_nvidia_nim_or_openai_api_key_here":
             try:
-                logger.info(f"Attempting Cloud LLM generation ({self.cloud_base_url})...")
+                logger.info(f"Attempting Cloud LLM generation ({self.cloud_base_url} / {self.cloud_model})...")
                 res = self._call_cloud_llm(prompt, json_schema)
                 return clean_and_repair_json(res)
             except Exception as e:
                 logger.warning(f"Cloud LLM call failed, falling back: {e}")
 
         # 2. Attempt Local Ollama (default path)
-        if getattr(self, "_ollama_available", True):
-            try:
-                logger.info(f"Attempting local Ollama generation ({self.ollama_url} / {self.ollama_model})...")
-                res = self._call_ollama(prompt, json_schema)
-                return clean_and_repair_json(res)
-            except Exception as e:
-                self._ollama_available = False
-                logger.warning(f"Ollama call failed or unavailable ({e}); engaging deterministic fallback.")
+        try:
+            logger.info(f"Attempting local Ollama generation ({self.ollama_url} / {self.ollama_model} / ctx={self.context_window})...")
+            res = self._call_ollama(prompt, json_schema)
+            return clean_and_repair_json(res)
+        except Exception as e:
+            logger.warning(f"Ollama generation call failed or timed out ({e}); engaging deterministic fallback.")
 
-        # 3. Deterministic Security Fallback (Never dies)
+        # 3. Deterministic Security Fallback (Never fails)
         logger.info(f"Engaging deterministic rule-based analyzer for task_type='{task_type}'")
         if task_type == "report":
             return DeterministicSecurityAnalyzer.generate_impact_and_remediation(prompt)
@@ -447,7 +582,7 @@ class LLMClient:
             return DeterministicSecurityAnalyzer.analyze_findings(prompt)
 
     def _call_cloud_llm(self, prompt: str, json_schema: Optional[Dict[str, Any]] = None) -> str:
-        """Invokes OpenAI-compatible / NVIDIA NIM endpoint."""
+        """Invokes OpenAI-compatible / NVIDIA NIM endpoint with reasoning fallback."""
         url = f"{self.cloud_base_url}/chat/completions"
         headers = {
             "Authorization": f"Bearer {self.cloud_api_key}",
@@ -461,31 +596,38 @@ class LLMClient:
         )
 
         payload = {
-            "model": "meta/llama-3.1-70b-instruct",  # Default versatile cloud model
+            "model": self.cloud_model,
             "messages": [
                 {"role": "system", "content": system_instruction},
                 {"role": "user", "content": prompt},
             ],
-            "temperature": 0.1,
-            "response_format": {"type": "json_object"},
+            "temperature": 0.2,
+            "max_tokens": 2048,
         }
 
         with httpx.Client(timeout=self.timeout_s) as client:
             resp = client.post(url, json=payload, headers=headers)
             resp.raise_for_status()
             data = resp.json()
-            return data["choices"][0]["message"]["content"]
+            choice = data["choices"][0]["message"]
+            content = choice.get("content")
+            if not content and choice.get("reasoning_content"):
+                content = choice.get("reasoning_content")
+            return content or ""
 
     def _call_ollama(self, prompt: str, json_schema: Optional[Dict[str, Any]] = None) -> str:
-        """Invokes local Ollama with format='json' enforced."""
+        """Invokes local Ollama with format='json', 8192 context window, and model keep-alive."""
         url = f"{self.ollama_url}/api/generate"
         payload = {
             "model": self.ollama_model,
             "prompt": prompt,
             "format": "json",
             "stream": False,
+            "keep_alive": "30m",
             "options": {
-                "temperature": 0.1,
+                "num_ctx": self.context_window,
+                "temperature": 0.2,
+                "top_p": 0.9,
             },
         }
 

@@ -49,25 +49,31 @@ def run_report(
 
     enriched_findings = []
     for finding in findings:
-        # LLM enrichment for impact and actionable code remediation
-        prompt = (
-            f"Generate concise business impact and actionable remediation for this vulnerability:\n"
-            f"Title: {finding.title}\n"
-            f"Component: {finding.affected_component}\n"
-            f"Severity: {finding.severity.value} (CVSS {finding.cvss_score})\n"
-            f"Description: {finding.description}\n"
+        # LLM enrichment for impact and actionable code remediation if not already detailed
+        needs_enrichment = (
+            not finding.business_impact
+            or finding.business_impact == "Security vulnerability requires remediation."
+            or "requires remediation" in finding.business_impact.lower()
         )
-        enrichment = llm_client.generate(prompt=prompt, task_type="report")
-
-        if enrichment.get("business_impact"):
-            finding.business_impact = enrichment["business_impact"]
-        if enrichment.get("remediation"):
-            rem = enrichment["remediation"]
-            finding.remediation = Remediation(
-                description=rem.get("description", finding.remediation.description),
-                fix=rem.get("fix", finding.remediation.fix),
-                example_code=rem.get("example_code", finding.remediation.example_code),
+        if needs_enrichment:
+            prompt = (
+                f"Generate concise business impact and actionable remediation for this vulnerability:\n"
+                f"Title: {finding.title}\n"
+                f"Component: {finding.affected_component}\n"
+                f"Severity: {finding.severity.value} (CVSS {finding.cvss_score})\n"
+                f"Description: {finding.description}\n"
             )
+            enrichment = llm_client.generate(prompt=prompt, task_type="report")
+
+            if enrichment.get("business_impact"):
+                finding.business_impact = enrichment["business_impact"]
+            if enrichment.get("remediation"):
+                rem = enrichment["remediation"]
+                finding.remediation = Remediation(
+                    description=rem.get("description", finding.remediation.description),
+                    fix=rem.get("fix", finding.remediation.fix),
+                    example_code=rem.get("example_code", finding.remediation.example_code),
+                )
 
         # Update SQLite finding
         state_mgr.save_finding(job_id, finding)

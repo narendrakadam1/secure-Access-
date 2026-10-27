@@ -177,6 +177,13 @@ class ScanState(BaseModel):
 class ScanInitRequest(BaseModel):
     """POST /scan request body."""
     target: str = Field(..., description="Target URL (for DAST) or public GitHub URL (for SAST)")
+    model: Optional[str] = Field(default=None, description="Optional chosen AI model name (e.g. qwen3.5:4b, gemma2:9b, or cloud)")
+
+
+class ModelSelectionRequest(BaseModel):
+    """POST /models/select request body."""
+    model: str = Field(..., description="Model name or 'cloud'")
+    cloud_api_key: Optional[str] = Field(default=None, description="Optional Cloud / NVIDIA NIM API key")
 
 
 class StatusResponse(BaseModel):

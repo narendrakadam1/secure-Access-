@@ -58,6 +58,14 @@ def validate_target_allowed(target: str) -> Tuple[bool, str, ScanMode]:
         return True, "Valid public GitHub target accepted for SAST assessment.", ScanMode.SAST
 
     # 2. DAST URL Validation
+    # Support raw port inputs (e.g. "3000", ":3000", "port 3000", "port:8000")
+    digits_only = re.sub(r"[^\d]", "", cleaned_target)
+    if cleaned_target.isdigit() or (cleaned_target.startswith(":") and cleaned_target[1:].isdigit()):
+        port = cleaned_target.lstrip(":")
+        cleaned_target = f"http://localhost:{port}"
+    elif cleaned_target.lower().startswith("port") and digits_only:
+        cleaned_target = f"http://localhost:{digits_only}"
+
     parsed = urlparse(cleaned_target)
     if not parsed.scheme or parsed.scheme not in ("http", "https"):
         # Auto-prefix http:// if raw host:port provided

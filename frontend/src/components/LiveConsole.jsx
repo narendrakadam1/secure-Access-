@@ -15,10 +15,21 @@ export default function LiveConsole({ logs, isScanning }) {
     if (!logs || logs.length === 0) return;
     const text = logs
       .map((l) => {
-        const time = l.ts || l.timestamp || '';
+        const rawTime = l.ts || l.timestamp || '';
+        let localTime = rawTime;
+        if (rawTime) {
+          try {
+            const hasTz = rawTime.endsWith('Z') || rawTime.includes('+') || (rawTime.indexOf('-', 10) !== -1);
+            const iso = (rawTime.includes('T') && !hasTz) ? `${rawTime}Z` : rawTime;
+            const d = new Date(iso);
+            if (!isNaN(d.getTime())) {
+              localTime = d.toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            }
+          } catch {}
+        }
         const agent = l.agent_name || l.source_agent || 'System';
         const msg = l.line || l.message || '';
-        return `[${time}] [${agent}] ${msg}`;
+        return `[${localTime}] [${agent}] ${msg}`;
       })
       .join('\n');
     navigator.clipboard.writeText(text);
@@ -73,12 +84,28 @@ export default function LiveConsole({ logs, isScanning }) {
             const rawTime = log.ts || log.timestamp || '';
             const msg = log.line || log.message || '';
 
-            // Format timestamp (extract HH:MM:SS)
+            // Format timestamp into laptop local time (matches user's laptop clock)
             let formattedTime = '00:00:00';
-            if (rawTime.includes('T')) {
-              formattedTime = rawTime.split('T')[1]?.substring(0, 8) || '00:00:00';
-            } else if (rawTime.length >= 8) {
-              formattedTime = rawTime.substring(0, 8);
+            if (rawTime) {
+              try {
+                const hasTz = rawTime.endsWith('Z') || rawTime.includes('+') || (rawTime.indexOf('-', 10) !== -1);
+                const isoStr = (rawTime.includes('T') && !hasTz) ? `${rawTime}Z` : rawTime;
+                const dateObj = new Date(isoStr);
+                if (!isNaN(dateObj.getTime())) {
+                  formattedTime = dateObj.toLocaleTimeString([], {
+                    hour12: false,
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                  });
+                } else if (rawTime.includes('T')) {
+                  formattedTime = rawTime.split('T')[1]?.substring(0, 8);
+                } else {
+                  formattedTime = rawTime.substring(0, 8);
+                }
+              } catch {
+                formattedTime = rawTime.substring(0, 8);
+              }
             }
 
             // Agent badge color scheme

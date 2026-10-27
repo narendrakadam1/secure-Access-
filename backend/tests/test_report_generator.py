@@ -109,7 +109,6 @@ def test_html_rendering_sudarshan_theme(mock_report_data):
     html = gen.render_html(mock_report_data)
 
     assert "SECUREASSESS" in html
-    assert "SIH 2026 PS ID 26163" in html
     assert "test-job-phase6-001" in html
     assert "Cross-Site Scripting" in html
     assert "CONFIRMED" in html

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import uuid
 from pathlib import Path
 from typing import Optional
@@ -24,6 +25,7 @@ from fastapi.responses import JSONResponse, FileResponse, HTMLResponse, Response
 
 from app.models import (
     ScanInitRequest,
+    ModelSelectionRequest,
     StatusResponse,
     ScanPhase,
     ScanMode,
@@ -50,6 +52,29 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Auto-load variables from .env if present
+def _load_env_config():
+    for candidate in [
+        Path(__file__).resolve().parent.parent.parent / ".env",
+        Path(__file__).resolve().parent.parent / ".env",
+        Path.cwd() / ".env",
+    ]:
+        if candidate.exists():
+            try:
+                with open(candidate, "r", encoding="utf-8") as f:
+                    for line in f:
+                        sline = line.strip()
+                        if sline and not sline.startswith("#") and "=" in sline:
+                            k, v = sline.split("=", 1)
+                            k, v = k.strip(), v.strip().strip('"').strip("'")
+                            if k and k not in os.environ:
+                                os.environ[k] = v
+                break
+            except Exception:
+                pass
+
+_load_env_config()
+
 # Initialize singletons
 state_mgr = StateManager()
 audit_logger = AuditLogger()
@@ -68,6 +93,32 @@ def health_check():
         "status": "healthy",
         "demo_mode": os.getenv("DEMO_MODE", "true").lower() in ("true", "1", "yes"),
         "scan_running": orchestrator.is_scan_running(),
+        "active_model": llm_client.get_active_model_description(),
+    }
+
+
+@app.get("/models")
+def get_available_models():
+    """
+    Returns detected local Ollama models (e.g. qwen3.5:4b, gemma2:9b)
+    and cloud model readiness status.
+    """
+    return llm_client.get_model_catalog()
+
+
+@app.post("/models/select")
+def select_model(payload: ModelSelectionRequest):
+    """
+    Switches active AI model dynamically or configures cloud API key.
+    """
+    if payload.cloud_api_key:
+        llm_client.set_cloud_key(payload.cloud_api_key)
+    if payload.model:
+        llm_client.set_model(payload.model)
+    return {
+        "status": "success",
+        "active_model": llm_client.get_active_model_description(),
+        "catalog": llm_client.get_model_catalog(),
     }
 
 
@@ -80,7 +131,19 @@ async def start_scan(request: ScanInitRequest, background_tasks: BackgroundTasks
     1. Pre-Packet Allowlist Gate: Disallows external unlisted targets before transmission.
     6. Concurrency Gate: Rejects overlapping scans with 409 Conflict.
     """
-    target = request.target.strip()
+    raw_target = request.target.strip()
+    target = raw_target
+    digits_only = re.sub(r"[^\d]", "", target)
+    if target.isdigit() or (target.startswith(":") and target[1:].isdigit()):
+        target = f"http://localhost:{target.lstrip(':')}"
+    elif target.lower().startswith("port") and digits_only:
+        target = f"http://localhost:{digits_only}"
+    elif not target.startswith("http://") and not target.startswith("https://") and "github.com" not in target.lower():
+        target = f"http://{target}"
+
+    # Configure selected model if provided
+    if request.model:
+        llm_client.set_model(request.model)
 
     # 1. Allowlist Gate (Constraint #1)
     is_allowed, reason, mode = validate_target_allowed(target)
@@ -108,7 +171,28 @@ async def start_scan(request: ScanInitRequest, background_tasks: BackgroundTasks
         "status": "initiated",
         "mode": mode.value,
         "target": target,
-        "message": f"Scan pipeline queued for target: {target} (Mode: {mode.value.upper()})",
+        "model": llm_client.get_active_model_description(),
+        "message": f"Scan pipeline queued for target: {target} (Mode: {mode.value.upper()}) using {llm_client.get_active_model_description()}",
+    }
+
+
+@app.post("/scan/{job_id}/cancel")
+async def cancel_scan(job_id: str):
+    """Cancels a currently active scan job immediately."""
+    cancelled = await orchestrator.cancel_scan(job_id)
+    if not cancelled:
+        scan = state_mgr.get_scan(job_id)
+        if not scan:
+            raise HTTPException(status_code=404, detail=f"Scan job '{job_id}' not found.")
+        return {
+            "status": "not_running",
+            "job_id": job_id,
+            "message": "Assessment is not currently running or already completed.",
+        }
+    return {
+        "status": "cancelled",
+        "job_id": job_id,
+        "message": "Assessment cancelled successfully.",
     }
 
 

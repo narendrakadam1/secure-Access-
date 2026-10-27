@@ -7,7 +7,7 @@ import LiveConsole from './components/LiveConsole';
 import FindingCard from './components/FindingCard';
 import ExportToolbar from './components/ExportToolbar';
 import ResearchGapModal from './components/ResearchGapModal';
-import { startScan, getScanStatus, getReportJson } from './api';
+import { startScan, getScanStatus, getReportJson, cancelScan } from './api';
 import { Shield, FileSearch } from 'lucide-react';
 
 export default function App() {
@@ -134,7 +134,7 @@ export default function App() {
     return () => clearInterval(pollTimerRef.current);
   }, [isScanning, jobId]);
 
-  const handleStartScan = async (target, mode) => {
+  const handleStartScan = async (target, mode, model = null) => {
     setError(null);
     setLogs([]);
     setFindings([]);
@@ -145,8 +145,9 @@ export default function App() {
     try {
       setIsScanning(true);
       setCurrentPhase('recon');
-      const res = await startScan(target, mode);
+      const res = await startScan(target, mode, model);
       setJobId(res.job_id);
+      const modelLabel = res.model || model || 'Auto';
       setLogs([
         {
           seq: 1,
@@ -154,14 +155,43 @@ export default function App() {
           timestamp: new Date().toISOString(),
           agent_name: 'Orchestrator',
           source_agent: 'Orchestrator',
-          line: `Scan pipeline initiated for target: ${target} [Job ID: ${res.job_id}] (Mode: ${mode.toUpperCase()})`,
-          message: `Scan pipeline initiated for target: ${target} [Job ID: ${res.job_id}] (Mode: ${mode.toUpperCase()})`,
+          line: `Scan pipeline initiated for target: ${target} [Job ID: ${res.job_id}] (Mode: ${mode.toUpperCase()}) | AI Engine: ${modelLabel}`,
+          message: `Scan pipeline initiated for target: ${target} [Job ID: ${res.job_id}] (Mode: ${mode.toUpperCase()}) | AI Engine: ${modelLabel}`,
         },
       ]);
     } catch (err) {
       setIsScanning(false);
       setCurrentPhase('failed');
       setError(err.message || 'Failed to initiate scan pipeline.');
+    }
+  };
+
+  const handleCancelScan = async () => {
+    if (!jobId) {
+      setIsScanning(false);
+      return;
+    }
+    try {
+      await cancelScan(jobId);
+    } catch (err) {
+      console.warn('Cancel API call error:', err);
+    } finally {
+      setIsScanning(false);
+      setCurrentPhase('failed');
+      setError('Assessment cancelled by operator.');
+      const cancelTime = new Date().toISOString();
+      setLogs((prev) => [
+        ...prev,
+        {
+          seq: (prev.length ? Math.max(...prev.map((l) => l.seq || 0)) : 0) + 1,
+          ts: cancelTime,
+          timestamp: cancelTime,
+          agent_name: 'Orchestrator',
+          source_agent: 'Orchestrator',
+          line: '[!] Assessment cancelled by operator request.',
+          message: '[!] Assessment cancelled by operator request.',
+        },
+      ]);
     }
   };
 
@@ -205,6 +235,7 @@ export default function App() {
         {/* Target Launch & Configuration Card */}
         <TargetConfig
           onStartScan={handleStartScan}
+          onCancelScan={handleCancelScan}
           isScanning={isScanning}
           currentTarget={currentTarget}
           currentMode={currentMode}

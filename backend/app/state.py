@@ -139,7 +139,7 @@ class StateManager:
     # --------------------------------------------------------------------------
 
     def create_scan(self, job_id: str, target: str, mode: ScanMode) -> ScanState:
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now().astimezone().isoformat()
         with self._get_connection() as conn:
             conn.execute(
                 """
@@ -182,7 +182,7 @@ class StateManager:
     def update_phase(
         self, job_id: str, phase: ScanPhase, error_message: Optional[str] = None
     ) -> None:
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now().astimezone().isoformat()
         with self._get_connection() as conn:
             conn.execute(
                 """
@@ -199,7 +199,7 @@ class StateManager:
     # --------------------------------------------------------------------------
 
     def append_log(self, job_id: str, line: str, agent_name: Optional[str] = None) -> int:
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now().astimezone().isoformat()
         with self._get_connection() as conn:
             # Atomic monotonic sequence per scan job
             cursor = conn.execute(
@@ -251,7 +251,7 @@ class StateManager:
     def save_tool_output(
         self, job_id: str, tool_name: str, raw_output: str, exit_code: int = 0
     ) -> int:
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now().astimezone().isoformat()
         with self._get_connection() as conn:
             cursor = conn.execute(
                 """
@@ -303,7 +303,7 @@ class StateManager:
     # --------------------------------------------------------------------------
 
     def save_finding(self, job_id: str, finding: Finding) -> None:
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now().astimezone().isoformat()
         with self._get_connection() as conn:
             conn.execute(
                 """
